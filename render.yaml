@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: local-stock-analyst-mcp
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m mcp_server
+    envVars:
+      - key: TRANSPORT_MODE
+        value: auto
+      - key: HTTP_TRANSPORT
+        value: sse
+      - key: HOST
+        value: 0.0.0.0
+      - key: MCP_PATH
+        value: /mcp
+      - key: HEALTH_PATH
+        value: /health
+
+
