@@ -34,6 +34,12 @@ class Settings:
     request_timeout_seconds: float = 15.0
     cache_ttl_seconds: int = 60
     provider_min_interval_seconds: float = 0.2
+    default_requests_per_minute: int = 100
+    request_queue_limit: int = 200
+    cache_ttl_quote_seconds: int = 15
+    cache_ttl_candles_seconds: int = 60
+    cache_ttl_news_seconds: int = 300
+    cache_ttl_fundamentals_seconds: int = 3600
 
 
 def _as_int(value: str | None, default: int) -> int:
@@ -93,6 +99,12 @@ def get_settings() -> Settings:
         request_timeout_seconds=_as_float(os.getenv("REQUEST_TIMEOUT_SECONDS"), 15.0),
         cache_ttl_seconds=_as_int(os.getenv("CACHE_TTL_SECONDS"), 60),
         provider_min_interval_seconds=_as_float(os.getenv("PROVIDER_MIN_INTERVAL_SECONDS"), 0.2),
+        default_requests_per_minute=_as_int(os.getenv("DEFAULT_REQUESTS_PER_MINUTE"), 100),
+        request_queue_limit=_as_int(os.getenv("REQUEST_QUEUE_LIMIT"), 200),
+        cache_ttl_quote_seconds=_as_int(os.getenv("CACHE_TTL_QUOTE_SECONDS"), 15),
+        cache_ttl_candles_seconds=_as_int(os.getenv("CACHE_TTL_CANDLES_SECONDS"), 60),
+        cache_ttl_news_seconds=_as_int(os.getenv("CACHE_TTL_NEWS_SECONDS"), 300),
+        cache_ttl_fundamentals_seconds=_as_int(os.getenv("CACHE_TTL_FUNDAMENTALS_SECONDS"), 3600),
     )
 
 
