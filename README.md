@@ -7,6 +7,64 @@ MCP server for stock intelligence workflows with:
 - In-memory TTL caching and per-provider rate-limit guards
 - `stdio` and Render-compatible HTTP transport modes
 
+## MCP Prompts and Resources
+
+The server now exposes MCP prompts/resources in addition to tools.
+
+- Prompt: `portfolio_analysis`
+  - Arguments: required `portfolio` (string)
+  - Purpose: builds a structured institutional-grade portfolio analysis instruction
+- Resource: `portfolio://current`
+  - MIME type: `application/json`
+  - Purpose: returns the latest successful portfolio workflow snapshot payload
+  - Note: run a portfolio workflow first (for example `analyze_portfolio_excel`) to populate it
+
+### Prompt examples
+
+- List prompts (`prompts/list`) now includes `portfolio_analysis`.
+- Get prompt (`prompts/get`) request example:
+
+```json
+{
+  "name": "portfolio_analysis",
+  "arguments": {
+    "portfolio": "US Core"
+  }
+}
+```
+
+- Example behavior:
+  - Unknown prompt name -> invalid-params style error (`Unknown prompt: ...`)
+  - Missing required argument -> invalid-params style error (`Missing required arguments: ...`)
+
+### Resource examples
+
+- List resources (`resources/list`) now includes `portfolio://current`.
+- List resource templates (`resources/templates/list`) now includes `portfolio://snapshot/{report_type}`.
+- Read resource (`resources/read`) request example:
+
+```json
+{
+  "uri": "portfolio://current"
+}
+```
+
+- Example successful response content is JSON with:
+  - `uri`, `report_type`, `source_file_path`, `payload`
+- Error behavior:
+  - Invalid URI / unknown resource -> not found style error
+  - No snapshot yet -> safe not-found message without sensitive token/key leakage
+  - Resource not found maps to JSON-RPC code `-32002`
+
+### Capability and subscription behavior
+
+- `prompts` capability advertises `listChanged: true`.
+- `resources` capability advertises:
+  - `subscribe: true`
+  - `listChanged: true`
+- Resource subscriptions are supported via `resources/subscribe` and `resources/unsubscribe`.
+- Subscribed clients receive `notifications/resources/updated` when `portfolio://current` is refreshed by portfolio workflows.
+
 ## Provider Support
 
 - Finnhub
@@ -138,5 +196,16 @@ Health endpoint defaults to `/health`.
 ```bash
 python -m pytest -q
 ```
+
+Protocol coverage now includes prompt/resource list/get/read success and error paths in `tests/test_mcp_prompts_resources.py`.
+
+## Canonical Runtime Package
+
+Use `mcp_server/` as the only supported runtime package and entrypoint:
+
+- Run with `python -m mcp_server`
+- Deploy using `mcp_server` module paths
+
+`Resources/` is legacy/reference and is not maintained for new MCP prompt/resource capabilities.
 
 
