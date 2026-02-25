@@ -71,7 +71,14 @@ class FallbackManager:
                 )
                 if value is not None:
                     warning = "Used fallback provider due to upstream issue." if had_fallback else None
-                    return ServiceResult(data=value, source=attempt.label, warning=warning)
+                    return ServiceResult(
+                        data=value,
+                        source=attempt.label,
+                        warning=warning,
+                        fetched_at=time.time(),
+                        data_provider=attempt.label,
+                        data_license="Provider terms apply",
+                    )
                 had_fallback = True
             except ProviderError as error:
                 had_fallback = True

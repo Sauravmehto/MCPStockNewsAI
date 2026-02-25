@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from mcp.server.fastmcp import FastMCP
@@ -12,6 +13,7 @@ from mcp_server.services.market_service import MarketService
 from mcp_server.services.news_service import NewsService
 from mcp_server.services.options_service import OptionsService
 from mcp_server.services.risk_service import RiskService
+from mcp_server.services.runtime_service import RuntimeService
 from mcp_server.services.screener_service import ScreenerService
 from mcp_server.services.stock_service import StockService
 from mcp_server.services.technical_service import TechnicalService
@@ -21,6 +23,7 @@ from mcp_server.tools.news_tools import register_news_tools
 from mcp_server.tools.options_tools import register_options_tools
 from mcp_server.tools.portfolio_tools import register_portfolio_tools
 from mcp_server.tools.risk_tools import register_risk_tools
+from mcp_server.tools.runtime_tools import register_runtime_tools
 from mcp_server.tools.screener_tools import register_screener_tools
 from mcp_server.tools.stocks_tools import register_stocks_tools
 from mcp_server.tools.technical_tools import register_technical_tools
@@ -37,9 +40,14 @@ class ToolServices:
     news: NewsService
     screener: ScreenerService
     portfolio: PortfolioService
+    runtime: RuntimeService
 
 
-def build_tool_services(ctx, portfolio_enable_ai_summary: bool = True) -> ToolServices:
+def build_tool_services(
+    ctx,
+    portfolio_enable_ai_summary: bool = True,
+    portfolio_resource_updated_callback: Callable[[str], None] | None = None,
+) -> ToolServices:
     stocks = StockService(ctx)
     return ToolServices(
         market=MarketService(ctx, stocks),
@@ -50,7 +58,12 @@ def build_tool_services(ctx, portfolio_enable_ai_summary: bool = True) -> ToolSe
         risk=RiskService(stocks),
         news=NewsService(ctx),
         screener=ScreenerService(stocks),
-        portfolio=PortfolioService(ctx, enable_ai_summary=portfolio_enable_ai_summary),
+        portfolio=PortfolioService(
+            ctx,
+            enable_ai_summary=portfolio_enable_ai_summary,
+            resource_updated_callback=portfolio_resource_updated_callback,
+        ),
+        runtime=RuntimeService(ctx),
     )
 
 
@@ -64,5 +77,6 @@ def register_all_tools(mcp: FastMCP, services: ToolServices) -> None:
     register_news_tools(mcp, services)
     register_screener_tools(mcp, services)
     register_portfolio_tools(mcp, services)
+    register_runtime_tools(mcp, services)
 
 
