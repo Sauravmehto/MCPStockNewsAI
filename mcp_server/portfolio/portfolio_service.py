@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 import pandas as pd
@@ -65,9 +65,49 @@ def _json_validation_error(errors: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 class PortfolioService:
-    def __init__(self, ctx: ServiceContext, enable_ai_summary: bool = True) -> None:
+    def __init__(
+        self,
+        ctx: ServiceContext,
+        enable_ai_summary: bool = True,
+        resource_updated_callback: Callable[[str], None] | None = None,
+    ) -> None:
         self.ctx = ctx
         self.enable_ai_summary = enable_ai_summary
+        self._current_resource_cache_key = "portfolio:current_resource"
+        self._resource_snapshot_prefix = "portfolio:resource_snapshot:"
+        self._resource_updated_callback = resource_updated_callback
+
+    def _store_current_resource_snapshot(
+        self,
+        report_type: str,
+        source_file_path: str,
+        payload: dict[str, Any],
+    ) -> None:
+        snapshot = {
+            "uri": "portfolio://current",
+            "report_type": report_type,
+            "source_file_path": source_file_path,
+            "payload": payload,
+        }
+        self.ctx.cache.set(self._current_resource_cache_key, snapshot, ttl_seconds=self.ctx.cache_ttl_seconds)
+        self.ctx.cache.set(
+            f"{self._resource_snapshot_prefix}{report_type}",
+            snapshot,
+            ttl_seconds=self.ctx.cache_ttl_seconds,
+        )
+        if self._resource_updated_callback is not None:
+            self._resource_updated_callback("portfolio://current")
+
+    def get_current_resource_snapshot(self) -> dict[str, Any] | None:
+        cached = self.ctx.cache.get(self._current_resource_cache_key)
+        return cached if isinstance(cached, dict) else None
+
+    def get_resource_snapshot(self, report_type: str) -> dict[str, Any] | None:
+        normalized = report_type.strip().lower()
+        if normalized not in {"analysis", "benchmark", "stress_test"}:
+            return None
+        cached = self.ctx.cache.get(f"{self._resource_snapshot_prefix}{normalized}")
+        return cached if isinstance(cached, dict) else None
 
     def _fred(self) -> FredClient | None:
         provider = self.ctx.get_provider("fred")
@@ -338,29 +378,39 @@ class PortfolioService:
         try:
             asyncio.get_running_loop()
         except RuntimeError:
-            return asyncio.run(self.analyze_excel_async(file_path, include_ai_summary=include_ai_summary))
+            payload = asyncio.run(self.analyze_excel_async(file_path, include_ai_summary=include_ai_summary))
+            if payload.get("ok"):
+                self._store_current_resource_snapshot("analysis", file_path, payload)
+            return payload
         with ThreadPoolExecutor(max_workers=1) as executor:
             future = executor.submit(
                 lambda: asyncio.run(self.analyze_excel_async(file_path, include_ai_summary=include_ai_summary))
             )
-            return future.result()
+            payload = future.result()
+            if payload.get("ok"):
+                self._store_current_resource_snapshot("analysis", file_path, payload)
+            return payload
 
     def benchmark_report(self, file_path: str) -> dict[str, Any]:
         payload = self.analyze_excel(file_path, include_ai_summary=False)
         if not payload.get("ok"):
             return payload
-        return {
+        benchmark_payload = {
             "ok": True,
             "benchmark_comparison": payload["benchmark_comparison"],
             "beta": payload["beta"],
             "tracking_error": payload["benchmark_comparison"]["tracking_error"],
             "information_ratio": payload["benchmark_comparison"]["information_ratio"],
         }
+        self._store_current_resource_snapshot("benchmark", file_path, benchmark_payload)
+        return benchmark_payload
 
     def stress_test(self, file_path: str) -> dict[str, Any]:
         payload = self.analyze_excel(file_path, include_ai_summary=False)
         if not payload.get("ok"):
             return payload
-        return {"ok": True, "portfolio_value": payload["portfolio_value"], "stress_tests": payload["stress_tests"]}
+        stress_payload = {"ok": True, "portfolio_value": payload["portfolio_value"], "stress_tests": payload["stress_tests"]}
+        self._store_current_resource_snapshot("stress_test", file_path, stress_payload)
+        return stress_payload
 
 

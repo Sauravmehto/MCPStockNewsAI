@@ -3,14 +3,21 @@
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import dataclass
 from typing import Any, Literal
 
 import requests
+from requests.adapters import HTTPAdapter
 
 from mcp_server.providers.models import ProviderName
 
 ProviderErrorCode = Literal["RATE_LIMIT", "AUTH", "NOT_FOUND", "UPSTREAM", "NETWORK", "BAD_RESPONSE"]
+TRANSIENT_CODES = {408, 425, 429, 500, 502, 503, 504}
+
+_SESSION = requests.Session()
+_SESSION.mount("https://", HTTPAdapter(pool_connections=50, pool_maxsize=100))
+_SESSION.mount("http://", HTTPAdapter(pool_connections=50, pool_maxsize=100))
 
 
 @dataclass
@@ -39,35 +46,57 @@ def fetch_json(
     provider: ProviderName,
     timeout_seconds: float = 15.0,
     headers: dict[str, str] | None = None,
+    max_retries: int = 3,
 ) -> Any:
     """Fetch JSON with uniform provider/network error mapping."""
-
-    try:
-        response = requests.get(url, timeout=timeout_seconds, headers=headers)
-    except requests.RequestException as error:
-        raise ProviderError(provider, "NETWORK", f"Provider request failed: {error}") from error
-
-    raw = response.text or ""
-    parsed: Any = {}
-    if raw:
+    attempts = max(1, max_retries)
+    last_error: ProviderError | None = None
+    for attempt in range(1, attempts + 1):
         try:
-            parsed = json.loads(raw)
-        except json.JSONDecodeError as error:
-            raise ProviderError(
+            response = _SESSION.get(url, timeout=timeout_seconds, headers=headers)
+        except requests.RequestException as error:
+            mapped = ProviderError(provider, "NETWORK", "Provider request failed due to network error.")
+            last_error = mapped
+            if attempt < attempts:
+                time.sleep(0.25 * (2 ** (attempt - 1)))
+                continue
+            raise mapped from error
+
+        raw = response.text or ""
+        parsed: Any = {}
+        if raw:
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError as error:
+                mapped = ProviderError(
+                    provider,
+                    "BAD_RESPONSE",
+                    "Provider returned non-JSON content.",
+                    response.status_code,
+                )
+                last_error = mapped
+                if response.status_code in TRANSIENT_CODES and attempt < attempts:
+                    time.sleep(0.25 * (2 ** (attempt - 1)))
+                    continue
+                raise mapped from error
+
+        if not response.ok:
+            mapped = ProviderError(
                 provider,
-                "BAD_RESPONSE",
-                "Provider returned non-JSON content.",
+                map_status_to_code(response.status_code),
+                f"Provider request failed with status {response.status_code}.",
                 response.status_code,
-            ) from error
+            )
+            last_error = mapped
+            if response.status_code in TRANSIENT_CODES and attempt < attempts:
+                time.sleep(0.25 * (2 ** (attempt - 1)))
+                continue
+            raise mapped
 
-    if not response.ok:
-        raise ProviderError(
-            provider,
-            map_status_to_code(response.status_code),
-            f"Provider request failed with status {response.status_code}.",
-            response.status_code,
-        )
+        return parsed
 
-    return parsed
+    if last_error:
+        raise last_error
+    raise ProviderError(provider, "UPSTREAM", "Provider request failed.")
 
 

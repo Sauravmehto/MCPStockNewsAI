@@ -1,0 +1,3 @@
+"""Prompt registration package."""
+
+
