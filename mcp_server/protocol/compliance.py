@@ -42,14 +42,27 @@ class ProtocolCompliance:
                 ),
                 experimental_capabilities or {},
             )
-            if options.capabilities.resources is not None:
-                options.capabilities.resources.subscribe = True
-                options.capabilities.resources.listChanged = True
-            if options.capabilities.prompts is not None:
-                options.capabilities.prompts.listChanged = True
+            options.capabilities.prompts = mcp_types.PromptsCapability(listChanged=True)
+            options.capabilities.resources = mcp_types.ResourcesCapability(subscribe=True, listChanged=True)
             return options
 
         server.create_initialization_options = MethodType(patched_create_initialization_options, server)
+
+    def register_explicit_list_handlers(self) -> None:
+        """Re-register list handlers explicitly so capabilities and discovery are always available."""
+        server = self.mcp._mcp_server
+
+        @server.list_prompts()
+        async def list_prompts():
+            return await self.mcp.list_prompts()
+
+        @server.list_resources()
+        async def list_resources():
+            return await self.mcp.list_resources()
+
+        @server.list_resource_templates()
+        async def list_resource_templates():
+            return await self.mcp.list_resource_templates()
 
     def _register_subscribe_handlers(self) -> None:
         server = self.mcp._mcp_server
@@ -130,6 +143,8 @@ class ProtocolCompliance:
 
 def configure_protocol_compliance(mcp: FastMCP) -> ProtocolCompliance:
     """Configure protocol compliance hooks and return notifier state."""
-    return ProtocolCompliance(mcp)
+    compliance = ProtocolCompliance(mcp)
+    compliance.register_explicit_list_handlers()
+    return compliance
 
 
