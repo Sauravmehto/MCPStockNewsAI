@@ -135,7 +135,31 @@ async def run() -> None:
 
     @mcp.custom_route(settings.health_path, methods=["GET"])
     async def health_check(_: object) -> Response:
-        return JSONResponse({"status": "ok", "service": settings.app_name, "mode": resolved_mode})
+        prompts = await mcp.list_prompts()
+        resources = await mcp.list_resources()
+        templates = await mcp.list_resource_templates()
+        return JSONResponse(
+            {
+                "status": "ok",
+                "service": settings.app_name,
+                "mode": resolved_mode,
+                "prompt_count": len(prompts),
+                "resource_count": len(resources),
+                "resource_template_count": len(templates),
+            }
+        )
+
+    @mcp.custom_route("/mcp-capabilities", methods=["GET"])
+    async def mcp_capabilities(_: object) -> Response:
+        options = mcp._mcp_server.create_initialization_options()
+        capabilities = options.capabilities.model_dump(by_alias=True, exclude_none=True)
+        return JSONResponse(
+            {
+                "server_name": options.server_name,
+                "server_version": options.server_version,
+                "capabilities": capabilities,
+            }
+        )
 
     @mcp.custom_route("/tools/{tool_name}", methods=["POST"])
     async def guarded_tool_call(request: Request) -> Response:
