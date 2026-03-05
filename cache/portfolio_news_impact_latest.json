@@ -1,0 +1,63 @@
+{
+  "generated_at": 1772547675,
+  "include_live_news": true,
+  "input_symbols": [
+    "AAPL"
+  ],
+  "ranked_positions": [
+    {
+      "symbol": "AAPL",
+      "sector": "Technology",
+      "quantity": 10.0,
+      "price": 100.0,
+      "beta": 1.5,
+      "news_count": 3,
+      "weighted_risk_score": 66.67,
+      "estimated_percent_impact": -2.188,
+      "estimated_dollar_impact": -21.88,
+      "action": "REDUCE",
+      "items": [
+        {
+          "headline": "AAPL weak outlook",
+          "sentiment": -1,
+          "relevance": 1.0,
+          "estimated_percent_impact": -2.625,
+          "weighted_risk_score": 100.0,
+          "action": "REDUCE"
+        },
+        {
+          "headline": "AAPL faces weak demand",
+          "sentiment": -1,
+          "relevance": 1.0,
+          "estimated_percent_impact": -2.625,
+          "weighted_risk_score": 100.0,
+          "action": "REDUCE"
+        },
+        {
+          "headline": "Fed signals caution",
+          "sentiment": 0,
+          "relevance": 0.4,
+          "estimated_percent_impact": 0.0,
+          "weighted_risk_score": 0.0,
+          "action": "HOLD"
+        }
+      ],
+      "quote_source": "smoke",
+      "profile_source": "smoke",
+      "metrics_source": "smoke",
+      "profile": {
+        "symbol": "AAPL",
+        "name": null,
+        "exchange": null,
+        "currency": null,
+        "country": null,
+        "industry": "technology",
+        "ipo": null,
+        "market_capitalization": null,
+        "website": null,
+        "logo": null,
+        "source": "finnhub"
+      }
+    }
+  ]
+}
