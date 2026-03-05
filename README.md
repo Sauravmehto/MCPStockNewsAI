@@ -93,7 +93,9 @@ The server now exposes MCP prompts/resources in addition to tools.
 - **Risk**
   - `get_beta`, `get_sharpe_sortino`, `get_max_drawdown`, `get_var`, `get_correlation`, `get_rebalance_plan`, `get_markowitz_allocation`, `get_dividend_projection`, `get_tax_estimate`
 - **News**
-  - `get_company_news`, `get_market_news`
+  - `get_company_news`, `get_market_news`, `get_news_sentiment_overview`, `get_macro_risk_news`
+- **Portfolio News Impact**
+  - `get_portfolio_news_impact`, `get_symbol_news_impact`, `get_watchlist_news_impact`
 - **Screener**
   - `run_screener`
 - **Portfolio**
