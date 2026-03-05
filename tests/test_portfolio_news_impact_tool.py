@@ -106,3 +106,42 @@ def test_portfolio_news_impact_validation_error_for_missing_symbols() -> None:
         )
 
 
+def test_symbol_news_impact_returns_item_level_payload() -> None:
+    mcp = FastMCP(name="symbol-news-impact-tool")
+    services = SimpleNamespace(news=_MockNewsService(), stocks=_MockStocksService(), fundamental=_MockFundamentalService())
+    register_portfolio_news_impact_tools(mcp, services)
+
+    payload_text = _call_tool_result_string(
+        mcp,
+        "get_symbol_news_impact",
+        {
+            "symbol": "AAPL",
+            "news_items": ["AAPL receives strong AI demand update"],
+            "include_live_news": False,
+        },
+    )
+    payload = json.loads(payload_text)
+    assert payload["symbol"] == "AAPL"
+    assert payload["news_count"] == 1
+    assert payload["summary"]["symbol"] == "AAPL"
+    assert len(payload["summary"]["items"]) == 1
+
+
+def test_watchlist_news_impact_ranks_symbols() -> None:
+    mcp = FastMCP(name="watchlist-news-impact-tool")
+    services = SimpleNamespace(news=_MockNewsService(), stocks=_MockStocksService(), fundamental=_MockFundamentalService())
+    register_portfolio_news_impact_tools(mcp, services)
+
+    payload_text = _call_tool_result_string(
+        mcp,
+        "get_watchlist_news_impact",
+        {
+            "symbols": ["TSLA", "AAPL"],
+            "include_live_news": True,
+        },
+    )
+    payload = json.loads(payload_text)
+    assert payload["input_symbols"] == ["TSLA", "AAPL"]
+    assert len(payload["ranked_positions"]) == 2
+    assert payload["ranked_positions"][0]["symbol"] == "TSLA"
+
