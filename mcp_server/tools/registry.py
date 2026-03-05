@@ -21,6 +21,7 @@ from mcp_server.tools.fundamental_tools import register_fundamental_tools
 from mcp_server.tools.market_tools import register_market_tools
 from mcp_server.tools.news_tools import register_news_tools
 from mcp_server.tools.options_tools import register_options_tools
+from mcp_server.tools.portfolio_news_impact import register_portfolio_news_impact_tools
 from mcp_server.tools.portfolio_tools import register_portfolio_tools
 from mcp_server.tools.risk_tools import register_risk_tools
 from mcp_server.tools.runtime_tools import register_runtime_tools
@@ -77,6 +78,7 @@ def register_all_tools(mcp: FastMCP, services: ToolServices) -> None:
     register_news_tools(mcp, services)
     register_screener_tools(mcp, services)
     register_portfolio_tools(mcp, services)
+    register_portfolio_news_impact_tools(mcp, services)
     register_runtime_tools(mcp, services)
 
 

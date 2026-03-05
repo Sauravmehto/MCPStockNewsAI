@@ -27,8 +27,10 @@ from mcp_server.providers.web_quote_search import WebQuoteSearchClient
 from mcp_server.providers.yahoo_finance import YahooFinanceClient
 from mcp_server.protocol.compliance import configure_protocol_compliance
 from mcp_server.prompts.market_prompts import register_market_prompts
+from mcp_server.prompts.portfolio_news_risk import register_portfolio_news_risk_prompt
 from mcp_server.prompts.portfolio_prompts import register_portfolio_prompts
 from mcp_server.resources.market_resources import register_market_resources
+from mcp_server.resources.portfolio_news_impact import register_portfolio_news_impact_resource
 from mcp_server.resources.portfolio_resources import register_portfolio_resources
 from mcp_server.runtime.limits import RateLimitExceeded, RequestLimiter
 from mcp_server.runtime.monitoring import ServerMetrics, log_tool_event
@@ -128,8 +130,10 @@ async def run() -> None:
     register_all_tools(mcp, services)
     register_market_prompts(mcp)
     register_portfolio_prompts(mcp)
+    register_portfolio_news_risk_prompt(mcp)
     register_market_resources(mcp, services, protocol)
     register_portfolio_resources(mcp, services)
+    register_portfolio_news_impact_resource(mcp)
     resolved_mode = resolve_transport_mode(settings.transport_mode)
     resolved_http_transport = resolve_http_transport(settings.http_transport)
 
