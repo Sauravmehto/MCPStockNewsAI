@@ -7,7 +7,7 @@ import pytest
 from mcp.server.fastmcp import FastMCP
 
 from mcp_server.providers.models import NormalizedCompanyProfile, NormalizedKeyFinancials, NormalizedNewsItem, NormalizedQuote
-from mcp_server.services.base import ServiceResult
+from mcp_server.services.base import ErrorEnvelope, ServiceResult
 from mcp_server.tools.portfolio_news_impact import register_portfolio_news_impact_tools
 
 
@@ -55,6 +55,20 @@ class _MockFundamentalService:
     def get_metrics(self, symbol: str) -> ServiceResult[NormalizedKeyFinancials]:
         beta = 1.1 if symbol == "AAPL" else 2.0
         return ServiceResult(data=NormalizedKeyFinancials(symbol=symbol, beta=beta), source="unit-test")
+
+
+class _PartiallyFailingStocksService(_MockStocksService):
+    def get_quote(self, symbol: str) -> ServiceResult[NormalizedQuote]:
+        if symbol == "TSLA":
+            return ServiceResult(
+                data=None,
+                error=ErrorEnvelope(
+                    code="UPSTREAM",
+                    message="All stock data providers are currently unavailable. Please try again later.",
+                ),
+                source="unit-test",
+            )
+        return super().get_quote(symbol)
 
 
 def _call_tool_result_string(mcp: FastMCP, name: str, arguments: dict[str, object]) -> str:
@@ -144,4 +158,24 @@ def test_watchlist_news_impact_ranks_symbols() -> None:
     assert payload["input_symbols"] == ["TSLA", "AAPL"]
     assert len(payload["ranked_positions"]) == 2
     assert payload["ranked_positions"][0]["symbol"] == "TSLA"
+
+
+def test_watchlist_news_impact_skips_symbols_when_quote_unavailable() -> None:
+    mcp = FastMCP(name="watchlist-news-impact-partial")
+    services = SimpleNamespace(news=_MockNewsService(), stocks=_PartiallyFailingStocksService(), fundamental=_MockFundamentalService())
+    register_portfolio_news_impact_tools(mcp, services)
+
+    payload_text = _call_tool_result_string(
+        mcp,
+        "get_watchlist_news_impact",
+        {
+            "symbols": ["TSLA", "AAPL"],
+            "include_live_news": True,
+        },
+    )
+    payload = json.loads(payload_text)
+    assert payload["ok"] is True
+    assert payload["processed_count"] == 1
+    assert payload["ranked_positions"][0]["symbol"] == "AAPL"
+    assert payload["skipped_symbols"][0]["symbol"] == "TSLA"
 
