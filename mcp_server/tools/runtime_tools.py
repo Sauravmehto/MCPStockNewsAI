@@ -105,4 +105,49 @@ def register_runtime_tools(mcp: FastMCP, services: "ToolServices") -> None:
         ]
         return json.dumps({"contents": payload}, ensure_ascii=True)
 
+    @mcp.tool(description="Compatibility tool: search tools by name/description and return argument schema hints.")
+    def tool_search(query: str, limit: int = 20) -> str:
+        tools = _run_async(mcp.list_tools())
+        query_text = query.strip().lower()
+        query_tokens = [token for token in query_text.split() if token]
+        capped_limit = max(1, min(100, int(limit)))
+        matches = []
+        for tool in tools:
+            haystack = " ".join(
+                [
+                    str(getattr(tool, "name", "") or ""),
+                    str(getattr(tool, "description", "") or ""),
+                ]
+            ).lower()
+            if query_tokens and not all(token in haystack for token in query_tokens):
+                continue
+            input_schema = getattr(tool, "inputSchema", None)
+            properties = {}
+            required = []
+            if isinstance(input_schema, dict):
+                props = input_schema.get("properties")
+                if isinstance(props, dict):
+                    properties = props
+                req = input_schema.get("required")
+                if isinstance(req, list):
+                    required = [str(item) for item in req]
+            matches.append(
+                {
+                    "name": getattr(tool, "name", ""),
+                    "description": getattr(tool, "description", ""),
+                    "required": required,
+                    "properties": properties,
+                }
+            )
+            if len(matches) >= capped_limit:
+                break
+        return json.dumps(
+            {
+                "query": query,
+                "count": len(matches),
+                "tools": matches,
+            },
+            ensure_ascii=True,
+        )
+
 

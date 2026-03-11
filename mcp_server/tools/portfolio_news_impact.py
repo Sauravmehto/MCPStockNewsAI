@@ -57,11 +57,20 @@ def register_portfolio_news_impact_tools(mcp: FastMCP, services: ToolServices) -
             market_items = [str(item).strip() for item in (market_result.data or []) if str(item).strip()]
 
         rows: list[dict[str, object]] = []
+        skipped_symbols: list[dict[str, str]] = []
         for symbol in normalized_symbols:
             quantity = 1.0  # Baseline per-share estimate when portfolio quantities are not provided.
 
             quote_result = services.stocks.get_quote(symbol)
-            quote = ensure_data(quote_result.data, quote_result.error, default_message=f"Quote unavailable for {symbol}.")
+            quote = quote_result.data
+            if quote is None:
+                message = (
+                    quote_result.error.message
+                    if quote_result.error and quote_result.error.message
+                    else f"Quote unavailable for {symbol}."
+                )
+                skipped_symbols.append({"symbol": symbol, "reason": message})
+                continue
             profile_result = services.stocks.get_profile(symbol)
             profile = profile_result.data
             metrics_result = services.fundamental.get_metrics(symbol)
@@ -97,9 +106,12 @@ def register_portfolio_news_impact_tools(mcp: FastMCP, services: ToolServices) -
         ranked = rank_symbol_impacts(rows)
         payload = {
             "generated_at": int(time.time()),
+            "ok": bool(ranked),
             "include_live_news": include_live_news,
             "input_symbols": normalized_symbols,
             "impact_basis": "per_share",
+            "processed_count": len(ranked),
+            "skipped_symbols": skipped_symbols,
             "ranked_positions": ranked,
         }
         cache_path = _write_latest_cache(payload)
@@ -191,9 +203,18 @@ def register_portfolio_news_impact_tools(mcp: FastMCP, services: ToolServices) -
             market_items = [str(item).strip() for item in (market_result.data or []) if str(item).strip()]
 
         rows: list[dict[str, object]] = []
+        skipped_symbols: list[dict[str, str]] = []
         for symbol_item in normalized_symbols:
             quote_result = services.stocks.get_quote(symbol_item)
-            quote = ensure_data(quote_result.data, quote_result.error, default_message=f"Quote unavailable for {symbol_item}.")
+            quote = quote_result.data
+            if quote is None:
+                message = (
+                    quote_result.error.message
+                    if quote_result.error and quote_result.error.message
+                    else f"Quote unavailable for {symbol_item}."
+                )
+                skipped_symbols.append({"symbol": symbol_item, "reason": message})
+                continue
             profile_result = services.stocks.get_profile(symbol_item)
             profile = profile_result.data
             metrics_result = services.fundamental.get_metrics(symbol_item)
@@ -222,9 +243,12 @@ def register_portfolio_news_impact_tools(mcp: FastMCP, services: ToolServices) -
 
         payload = {
             "generated_at": int(time.time()),
+            "ok": bool(rows),
             "include_live_news": include_live_news,
             "input_symbols": normalized_symbols,
             "impact_basis": "per_share",
+            "processed_count": len(rows),
+            "skipped_symbols": skipped_symbols,
             "ranked_positions": rank_symbol_impacts(rows),
         }
         return json.dumps(payload, ensure_ascii=True)
